@@ -15,8 +15,14 @@
       height: 80vh;
       overflow-y: auto;
       padding: 10px;
-      border-bottom: 1px solid #5c5454;
+      border-bottom: 1px solid #000000;
     }
+    input {
+    color: white;
+    background: #000;
+    border: 1px solid #333;
+  }
+
     .msg {
       margin-bottom: 5px;
     }
@@ -30,17 +36,24 @@
       padding: 10px;
       font-size: 14px;
     }
+    /* Default button style (non-owner) */
     button {
       cursor: pointer;
-      background: #333;
-      color: rgb(0, 255, 55);
-      border: 1px solid #555;
+      background: #000000;
+      color: white;
+      border: 1px solid #000000;
     }
+
+    /* When owner: make button text yellow */
+    body.owner-mode button {
+      color: rgba(230, 255, 8, 0.774);
+    }
+
     #owner-panel {
       position: fixed;
       bottom: 60px;
       left: 10px;
-      background-color: #222;
+      background-color: #3b3b3b;
       padding: 10px;
       border: 1px solid #444;
       display: none;
@@ -65,6 +78,7 @@
     <button id="delete-all-btn">Delete All Messages</button>
     <button id="reset-fun-btn">Reset Fun</button>
     <button id="annoy-btn">Annoy</button>
+    <button onclick="triggerGlobalRefresh()">Refresh Page</button>
     <button id="return-btn">Return</button>
   </div>
 
@@ -89,6 +103,8 @@
     const messagesRef = ref(db, "messages");
     const likesRef = ref(db, "likes");
     const funRef = ref(db, "fun");
+    const refreshRef = ref(db, "refreshAll");
+
 
     const chatBox = document.getElementById("chat-box");
     const msgInput = document.getElementById("msg-input");
@@ -110,35 +126,75 @@
 
     function updateOwnerUI() {
     if (isOwner) {
-      msgInput.placeholder = "⭐ Type Here ⭐";
-      msgInput.style.color = "brown";
+      msgInput.placeholder = "⭐Type Here⭐";
+      msgInput.style.color = "gold";
+      document.body.classList.add("owner-mode");
     } else {
+      document.body.classList.remove("owner-mode");
       msgInput.placeholder = "Type Here";
-      msgInput.style.color = "#fff";
+      msgInput.style.color = "white";
     }
   }
+    function triggerGlobalRefresh() {
+      if (!isOwner) return;
 
-    function promptUsername() {
-      const input = prompt("Enter your username:", username);
-      if (!input) return;
+      set(ref(db, "refreshAll"), true);
 
-      if (input === "BECOMEownerTank") {
-        const confirmOwner = confirm("Do you want to become the owner?");
+      // Optional: auto-reset after a bit so it can be used again
+      setTimeout(() => {
+        set(ref(db, "refreshAll"), false);
+      }, 2000);
+    }
+
+    onValue(refreshRef, (snap) => {
+      if (!snap.exists()) return;
+
+      const shouldRefresh = snap.val();
+
+    if (shouldRefresh) {
+      alert("TankChat is updating...");
+      setTimeout(() => location.reload(), 1000);
+    }
+
+
+    });
+
+
+  function promptUsername() {
+    const input = prompt("Enter your username:", username);
+    if (!input) return;
+
+    if (input === "DELETEownerTank") {
+      const deleteOwner = confirm("Do you want to get rid of being owner?");
+      if (deleteOwner) {
+        isOwner = false;
+        localStorage.setItem("isOwner", "false");
+        username = "Tank";
+        localStorage.setItem("username", username);
+        alert("You can change your username and you are no longer owner.");
+        updateOwnerUI();
+      }
+      return; // <-- IMPORTANT: stop here
+    }
+
+    if (input === "BECOMEownerTank") {
+      const confirmOwner = confirm("Do you want to become the owner?");
       if (confirmOwner) {
         isOwner = true;
         localStorage.setItem("isOwner", "true");
         username = "Tank";
         localStorage.setItem("username", username);
         alert("You are now the owner. You can change your name again if you want.");
-        updateOwnerUI(); // <-- add this
+        updateOwnerUI();
       }
-
-        return;
-      }
-
-      username = input;
-      localStorage.setItem("username", username);
+      return; // <-- ALSO stop here
     }
+
+    // normal username change
+    username = input;
+    localStorage.setItem("username", username);
+  }
+
 
     if (!username) promptUsername();
     usernameBtn.addEventListener("click", promptUsername);
