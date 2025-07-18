@@ -6,7 +6,7 @@
     body {
       font-family: Arial, sans-serif;
       background-color: #111;
-      color: #eee;
+      color: #ffffff;
       margin: 0;
       padding: 0;
       overflow-x: hidden;
@@ -15,7 +15,7 @@
       height: 80vh;
       overflow-y: auto;
       padding: 10px;
-      border-bottom: 1px solid #444;
+      border-bottom: 1px solid #5c5454;
     }
     .msg {
       margin-bottom: 5px;
@@ -24,6 +24,7 @@
       display: flex;
       padding: 10px;
       gap: 10px;
+      align-items: center;
     }
     input, button {
       padding: 10px;
@@ -32,7 +33,7 @@
     button {
       cursor: pointer;
       background: #333;
-      color: white;
+      color: rgb(0, 255, 55);
       border: 1px solid #555;
     }
     #owner-panel {
@@ -47,24 +48,30 @@
   </style>
 </head>
 <body>
-
+  <audio id="vileBoom" src="https://www.orangefreesounds.com/wp-content/uploads/2021/01/Vine-boom-sound-effect.mp3"></audio>
   <div id="chat-box"></div>
 
   <div id="input-area">
     <input type="text" id="msg-input" placeholder="Type Here " style="flex:1;" />
     <button id="send-btn">Send</button>
     <button id="username-btn">Set Username</button>
+    <button id="like-btn">👍 Like</button>
+    <span id="likes-display">Likes: 0</span>
+    <button id="fun-btn">+</button>
+    <span id="fun-display">Fun: 0</span>
   </div>
 
   <div id="owner-panel">
     <button id="delete-all-btn">Delete All Messages</button>
+    <button id="reset-fun-btn">Reset Fun</button>
+    <button id="annoy-btn">Annoy</button>
     <button id="return-btn">Return</button>
   </div>
 
-  <!-- Firebase App -->
   <script type="module">
+  
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getDatabase, ref, push, onValue, remove } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+    import { getDatabase, ref, push, onValue, remove, set, get } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyDcJHIEDUMWH0ck1CDz3il_sYtTypZLFcA",
@@ -80,17 +87,36 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
     const messagesRef = ref(db, "messages");
+    const likesRef = ref(db, "likes");
+    const funRef = ref(db, "fun");
 
     const chatBox = document.getElementById("chat-box");
     const msgInput = document.getElementById("msg-input");
     const sendBtn = document.getElementById("send-btn");
     const usernameBtn = document.getElementById("username-btn");
+    const likeBtn = document.getElementById("like-btn");
+    const likesDisplay = document.getElementById("likes-display");
+    const funBtn = document.getElementById("fun-btn");
+    const funDisplay = document.getElementById("fun-display");
     const ownerPanel = document.getElementById("owner-panel");
     const deleteAllBtn = document.getElementById("delete-all-btn");
     const returnBtn = document.getElementById("return-btn");
+    const annoyBtn = document.getElementById("annoy-btn");
+    const resetFunBtn = document.getElementById("reset-fun-btn");
 
     let username = localStorage.getItem("username") || "";
     let isOwner = localStorage.getItem("isOwner") === "true";
+    let liked = localStorage.getItem("liked") === "true";
+
+    function updateOwnerUI() {
+    if (isOwner) {
+      msgInput.placeholder = "⭐ Type Here ⭐";
+      msgInput.style.color = "shiny";
+    } else {
+      msgInput.placeholder = "Type Here";
+      msgInput.style.color = "#fff";
+    }
+  }
 
     function promptUsername() {
       const input = prompt("Enter your username:", username);
@@ -98,13 +124,15 @@
 
       if (input === "BECOMEownerTank") {
         const confirmOwner = confirm("Do you want to become the owner?");
-        if (confirmOwner) {
-          isOwner = true;
-          localStorage.setItem("isOwner", "true");
-          username = "Tank";
-          localStorage.setItem("username", username);
-          alert("You are now the owner. You can change your name again if you want.");
-        }
+      if (confirmOwner) {
+        isOwner = true;
+        localStorage.setItem("isOwner", "true");
+        username = "Tank";
+        localStorage.setItem("username", username);
+        alert("You are now the owner. You can change your name again if you want.");
+        updateOwnerUI(); // <-- add this
+      }
+
         return;
       }
 
@@ -127,23 +155,78 @@
         user: username,
         text,
         timestamp: Date.now(),
-        isOwner: isOwner
+        isOwner: isOwner,
+        ownerId: isOwner ? "Tank_Official_Owner" : null
       };
+
       push(messagesRef, msg);
       msgInput.value = "";
     }
 
-    function showMessage(msgObj) {
-      const msgDiv = document.createElement("div");
-      msgDiv.className = "msg";
-      msgDiv.innerText = `${msgObj.isOwner ? "(OWNER) " : ""}${msgObj.user}: ${msgObj.text}`;
-      chatBox.appendChild(msgDiv);
-      chatBox.scrollTop = chatBox.scrollHeight;
-    }
+  function showMessage(msgObj) {
+    const msgDiv = document.createElement("div");
+    msgDiv.className = "msg";
+
+    const isRealOwner = msgObj.ownerId === "Tank_Official_Owner";
+
+    const nameSpan = document.createElement("span");
+    nameSpan.innerText = isRealOwner ? `⭐ (OWNER) ${msgObj.user}: ` : `${msgObj.user}: `;
+    nameSpan.style.fontWeight = "bold";
+    if (isRealOwner) nameSpan.style.color = "gold";
+
+    const textSpan = document.createElement("span");
+    textSpan.innerText = msgObj.text;
+    if (isRealOwner) textSpan.style.color = "gold";
+
+    msgDiv.appendChild(nameSpan);
+    msgDiv.appendChild(textSpan);
+    chatBox.appendChild(msgDiv);
+    chatBox.scrollTop = chatBox.scrollHeight;
+  }
+
+
 
     onValue(messagesRef, (snapshot) => {
       chatBox.innerHTML = "";
       snapshot.forEach(child => showMessage(child.val()));
+    });
+
+    // Likes logic
+    onValue(likesRef, (snapshot) => {
+      likesDisplay.innerText = `Likes: ${snapshot.val() || 0}`;
+    });
+
+    likeBtn.addEventListener("click", async () => {
+      const snap = await get(likesRef);
+      let currentLikes = snap.exists() ? snap.val() : 0;
+
+      if (!liked) {
+        currentLikes++;
+        liked = true;
+        localStorage.setItem("liked", "true");
+      } else {
+        currentLikes--;
+        liked = false;
+        localStorage.setItem("liked", "false");
+      }
+
+      set(likesRef, currentLikes);
+    });
+
+    // Fun counter
+    onValue(funRef, (snapshot) => {
+      funDisplay.innerText = `Fun: ${snapshot.val() || 0}`;
+    });
+
+    funBtn.addEventListener("click", async () => {
+      const snap = await get(funRef);
+      let currentFun = snap.exists() ? snap.val() : 0;
+      set(funRef, currentFun + 1);
+    });
+
+    resetFunBtn.addEventListener("click", () => {
+      if (!isOwner) return;
+      set(funRef, 0);
     });
 
     // Admin Button
@@ -170,6 +253,45 @@
       ownerPanel.style.display = "none";
     });
 
+    // Firebase Annoy Feature
+const annoyRef = ref(db, 'annoy');
+
+  function annoyEveryone() {
+    const now = Date.now();
+    if (!window.lastAnnoy || now - window.lastAnnoy > 3000) {
+      window.lastAnnoy = now;
+      set(annoyRef, now);
+    }
+  }
+
+  onValue(annoyRef, (snap) => {
+    if (!snap.exists()) return;
+    const boom = document.getElementById("vileBoom");
+    showAnnoyOverlay();
+    boom.currentTime = 0;
+    boom.play();
+  });
+
+  function showAnnoyOverlay() {
+    const overlay = document.createElement("div");
+    overlay.id = "annoyOverlay";
+    overlay.style = `
+      position:fixed;top:0;left:0;width:100vw;height:100vh;
+      background:#000;display:flex;align-items:center;justify-content:center;
+      color:red;font-size:5vw;z-index:9999;font-weight:bold;
+    `;
+    overlay.innerText = "ANNOYED";
+    document.body.appendChild(overlay);
+    setTimeout(() => {
+      overlay.remove();
+    }, 3000);
+  }
+
+  annoyBtn.addEventListener("click", () => {
+    if (!isOwner) return;
+    annoyEveryone();
+  });
+  updateOwnerUI();
   </script>
 </body>
 </html>
