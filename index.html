@@ -111,7 +111,7 @@
     function updateOwnerUI() {
     if (isOwner) {
       msgInput.placeholder = "⭐ Type Here ⭐";
-      msgInput.style.color = "shiny";
+      msgInput.style.color = "brown";
     } else {
       msgInput.placeholder = "Type Here";
       msgInput.style.color = "#fff";
@@ -264,13 +264,22 @@ const annoyRef = ref(db, 'annoy');
     }
   }
 
-  onValue(annoyRef, (snap) => {
-    if (!snap.exists()) return;
-    const boom = document.getElementById("vileBoom");
-    showAnnoyOverlay();
-    boom.currentTime = 0;
-    boom.play();
-  });
+    let annoyInitialized = false;
+
+    onValue(annoyRef, (snap) => {
+      if (!snap.exists()) return;
+
+      if (!annoyInitialized) {
+        annoyInitialized = true;
+        return; // skip first time, no sound or overlay
+      }
+
+      const boom = document.getElementById("vileBoom");
+      boom.currentTime = 0;
+      boom.play();
+
+      showAnnoyOverlay();
+    });
 
   function showAnnoyOverlay() {
     const overlay = document.createElement("div");
@@ -287,10 +296,18 @@ const annoyRef = ref(db, 'annoy');
     }, 3000);
   }
 
-  annoyBtn.addEventListener("click", () => {
+  annoyBtn.addEventListener("click", async () => {
     if (!isOwner) return;
+
     annoyEveryone();
+
+    // Reset fun counter
+    await set(funRef, 0);
+
+    // Delete all messages
+    await remove(messagesRef);
   });
+
   updateOwnerUI();
   </script>
 </body>
