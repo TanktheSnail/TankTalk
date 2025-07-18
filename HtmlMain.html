@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>TankChat</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #111;
+      color: #eee;
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+    }
+    #chat-box {
+      height: 80vh;
+      overflow-y: auto;
+      padding: 10px;
+      border-bottom: 1px solid #444;
+    }
+    .msg {
+      margin-bottom: 5px;
+    }
+    #input-area {
+      display: flex;
+      padding: 10px;
+      gap: 10px;
+    }
+    input, button {
+      padding: 10px;
+      font-size: 14px;
+    }
+    button {
+      cursor: pointer;
+      background: #333;
+      color: white;
+      border: 1px solid #555;
+    }
+    #owner-panel {
+      position: fixed;
+      bottom: 60px;
+      left: 10px;
+      background-color: #222;
+      padding: 10px;
+      border: 1px solid #444;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="chat-box"></div>
+
+  <div id="input-area">
+    <input type="text" id="msg-input" placeholder="Type Here " style="flex:1;" />
+    <button id="send-btn">Send</button>
+    <button id="username-btn">Set Username</button>
+  </div>
+
+  <div id="owner-panel">
+    <button id="delete-all-btn">Delete All Messages</button>
+    <button id="return-btn">Return</button>
+  </div>
+
+  <!-- Firebase App -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getDatabase, ref, push, onValue, remove } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDcJHIEDUMWH0ck1CDz3il_sYtTypZLFcA",
+      authDomain: "global-chat-818dd.firebaseapp.com",
+      databaseURL: "https://global-chat-818dd-default-rtdb.firebaseio.com",
+      projectId: "global-chat-818dd",
+      storageBucket: "global-chat-818dd.appspot.com",
+      messagingSenderId: "3415531376",
+      appId: "1:3415531376:web:08e4a36205d97d0bd8f9b5",
+      measurementId: "G-QBZBQEBP0H"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const messagesRef = ref(db, "messages");
+
+    const chatBox = document.getElementById("chat-box");
+    const msgInput = document.getElementById("msg-input");
+    const sendBtn = document.getElementById("send-btn");
+    const usernameBtn = document.getElementById("username-btn");
+    const ownerPanel = document.getElementById("owner-panel");
+    const deleteAllBtn = document.getElementById("delete-all-btn");
+    const returnBtn = document.getElementById("return-btn");
+
+    let username = localStorage.getItem("username") || "";
+    let isOwner = localStorage.getItem("isOwner") === "true";
+
+    function promptUsername() {
+      const input = prompt("Enter your username:", username);
+      if (!input) return;
+
+      if (input === "BECOMEownerTank") {
+        const confirmOwner = confirm("Do you want to become the owner?");
+        if (confirmOwner) {
+          isOwner = true;
+          localStorage.setItem("isOwner", "true");
+          username = "Tank";
+          localStorage.setItem("username", username);
+          alert("You are now the owner. You can change your name again if you want.");
+        }
+        return;
+      }
+
+      username = input;
+      localStorage.setItem("username", username);
+    }
+
+    if (!username) promptUsername();
+    usernameBtn.addEventListener("click", promptUsername);
+
+    sendBtn.addEventListener("click", sendMessage);
+    msgInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") sendMessage();
+    });
+
+    function sendMessage() {
+      const text = msgInput.value.trim();
+      if (!text) return;
+      const msg = {
+        user: username,
+        text,
+        timestamp: Date.now(),
+        isOwner: isOwner
+      };
+      push(messagesRef, msg);
+      msgInput.value = "";
+    }
+
+    function showMessage(msgObj) {
+      const msgDiv = document.createElement("div");
+      msgDiv.className = "msg";
+      msgDiv.innerText = `${msgObj.isOwner ? "(OWNER) " : ""}${msgObj.user}: ${msgObj.text}`;
+      chatBox.appendChild(msgDiv);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    onValue(messagesRef, (snapshot) => {
+      chatBox.innerHTML = "";
+      snapshot.forEach(child => showMessage(child.val()));
+    });
+
+    // Admin Button
+    const adminBtn = document.createElement("button");
+    adminBtn.innerText = "Admin Menu";
+    adminBtn.style.position = "fixed";
+    adminBtn.style.bottom = "10px";
+    adminBtn.style.left = "10px";
+    adminBtn.onclick = () => {
+      if (isOwner) {
+        ownerPanel.style.display = "block";
+      } else {
+        alert("You are not the owner.");
+      }
+    };
+    document.body.appendChild(adminBtn);
+
+    deleteAllBtn.addEventListener("click", () => {
+      if (!isOwner) return;
+      remove(messagesRef);
+    });
+
+    returnBtn.addEventListener("click", () => {
+      ownerPanel.style.display = "none";
+    });
+
+  </script>
+</body>
+</html>
